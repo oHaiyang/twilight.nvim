@@ -44,6 +44,11 @@ end
 function M.disable()
   if M.enabled then
     M.enabled = false
+    vim.b.twilight_from = nil
+    vim.b.twilight_to = nil
+    vim.api.nvim_exec_autocmds("User", {
+      pattern = "TwilightFromToChanged",
+    })
     pcall(vim.cmd, "autocmd! Twilight")
     pcall(vim.cmd, "augroup! Twilight")
     for _, buf in pairs(vim.api.nvim_list_bufs()) do
@@ -169,7 +174,7 @@ function M.get_context(buf, line)
     local root = M.get_expand_root(node)
     if root then
       local from, to = M.range(root)
-      return from + 1, to + 2
+      return from + 1, to + 1
     end
     local from, to = M.expand(buf, line, line, line)
 
@@ -197,7 +202,7 @@ function M.get_context(buf, line)
       end
     end
 
-    return from + 1, to + 2
+    return from + 1, to + 1
   end
 
   local from = line - math.floor(config.options.context / 2)
@@ -247,6 +252,13 @@ function M.update(win)
   end
   local cursor = vim.api.nvim_win_get_cursor(win)
   local from, to = M.get_context(buf, cursor[1] - 1)
+  if from ~= vim.b.twilight_from or to ~= vim.b.twilight_to then
+    vim.b.twilight_from = from
+    vim.b.twilight_to = to
+    vim.api.nvim_exec_autocmds("User", {
+      pattern = "TwilightFromToChanged",
+    })
+  end
 
   local dimmers = {}
   M.focus(win, from, to, dimmers)
@@ -257,7 +269,8 @@ function M.update(win)
     end
   end
 
-  M.clear(buf, from - 1, to - 1)
+  -- M.clear(buf, from - 1, to - 1)
+  M.clear(buf)
 
   for lnum, _ in pairs(dimmers) do
     M.dim(buf, lnum - 1)
